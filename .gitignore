@@ -23,6 +23,7 @@ results/
 
 # Generated figures and output
 src/output/
+/output/
 src/fitFigs/
 figures/
 
