@@ -19,7 +19,6 @@ model_plot/
 model_plot_prev/
 results/
 *.csv
-*.xlsx
 
 # Generated figures and output
 src/output/
