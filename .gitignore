@@ -18,6 +18,7 @@ model_output/
 model_plot/
 model_plot_prev/
 results/
+output/
 *.csv
 *.xlsx
 
