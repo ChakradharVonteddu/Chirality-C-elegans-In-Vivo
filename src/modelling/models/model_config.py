@@ -1,9 +1,12 @@
 import numpy as np
 
+#T_FINAL = 4 - burn in same egg-shell
+#T_FINAL = 7 - burn in wider egg-shell
 T_FINAL = 195
+burn_in = False
 # P2 = np.array([-1.1660254, 0, 0]) # 0 degrees
 #P2 = np.array([-1.05, 0, -0.433012702]) # 30 degrees
-P2 = np.array([-0.75, 0, -0.33]) # eye balled in Desmos
+#P2_0 = np.array([-0.75, 0, -0.33]) # eye balled in Desmos
 #P2 = np.array([-0.91237244, 0, -0.612372436]) # 45 degrees
 
 #EMS = np.array([-0.91237244, 0, -0.612372436]) # 45 degrees
@@ -12,13 +15,37 @@ P2 = np.array([-0.75, 0, -0.33]) # eye balled in Desmos
 #E0, E1 = (1.8, 0.87)
 #E0, E1 = (2.6, 1.7)  # actual ratios, from Cao, J., Guan, G., Ho, V.W.S. et al. Establishment of a morphological atlas of the Caenorhabditis elegans embryo using deep-learning-based 4D segmentation. Nat Commun 11, 6254 (2020). https://doi.org/10.1038/s41467-020-19863-x
 # All 17 embryos with segmented cell morphologies were embodied by a unified cylindroid, approximately with a height of 18 μm, a semimajor axis of 27 μm and a semiminor axis of 18 μm
-E0, E1 = (1.3, 0.85)
+T_FINAL_C = 250
+
+R0 = 1 #The initial radius of an ABal/ABar/ABpr/ABpl cell is approx 8.95 micro meters.
+R0_ALT = 8.95 #R0 in micro meters
+
+
+ASPECT_RATIO = 1.53
+#E0, E1 = (2.6, 1.7) #to be used during burn-in phase
+
+ETA = 0 #Initial tilt
 
 # The additional length of the mitotic axis at the end (t=195) (total final length is 1+ this)
+#FINAL_SPRING_LENGTH = 0.1*spindle_length
 #FINAL_SPRING_LENGTH = 0.2
-FINAL_SPRING_LENGTH = 0.1
+
+#v0 = 8/3*np.pi*0.5**3 - np.pi/12*(4*0.5 + spindle_length)*(2*0.5 - spindle_length)**2  #Initial volume
+
+#EMS2EMS_REST_L = 0.4 #to be used for calculation of spring forces between EMS cells only
+NUM_EMS = 4
+
+cell_names = ["ABal","ABar","ABpr","ABpl","p2","ems_a","ems_b","ems_c","ems_d"]
+#cell_names = ["ABal","ABar","ABpr","ABpl","p2","ems_a"]
+#cell_names = ["ABpr","ABpl","p2"]
 
 # The time constant in the cortical flow function
-#LAM = 0.014666  # Marcus' fit value
-#LAM = 0.002  # Marcus' fit value
-LAM = 0.008  # Marcus' fit value
+##LAM = 0.014666  # Marcus' fit value
+##LAM = 0.002  # Marcus' fit value
+#LAM = 0.0107  # Marcus' fit value
+
+modifiers = {
+"include_shell" : True,
+"include_p2" : True,
+"include_shell_friction" : False,
+"include_ems" : True}

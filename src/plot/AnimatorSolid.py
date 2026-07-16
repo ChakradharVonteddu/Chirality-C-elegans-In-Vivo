@@ -3,23 +3,22 @@ import numpy as np
 import pandas as pd
 from matplotlib.animation import FuncAnimation
 from matplotlib.lines import Line2D
-
-from modelling.models.model_config import E0, E1, P2
+from modelling.models.model_config import cell_names
 
 # colors = ["#56B4E9", "#0072B2", "#D55E00", "#E69F00"] # colour-blind safe version
 # colors = ["#1f77b4", "#aec7e8", "#ff7f0e", "#ffbb78"]
-# colors = ["blue", "orange", "green", "red"]
-colors = ["darkblue", "blue", "red", "darkred"]
-
+colors = ["darkblue", "blue", "red", "darkred", "orange", "green", "green", "green", "green"]
+#colors = ["darkblue", "blue", "red", "darkred", "orange", "green"]
 
 class Animator:
-    def __init__(self, data) -> None:
+    def __init__(self, data, radii_data) -> None:
         self.data = Animator.process_df(data)
+        self.radii = radii_data
         self.spheres = []  # Store previous sphere objects
 
     def animate(self):
         """
-        Takes a euler df and animates it in matplotlib, assumes 4 components
+        Takes a euler df and animates it in matplotlib, assumes 6 components
         """
         # setup figure and axes
         FIG = plt.figure()
@@ -28,12 +27,12 @@ class Animator:
         # setting range
         #        SIZE = [-1, 1, -1, 1, -1, 1] # plotting limits x low, x high, yl, yh, zl, zh
         SIZE = [
-            -1.3,
-            1,
-            -1.6,
-            1,
-            -1,
-            1,
+        -2,  
+        2,   
+        -2,  
+        2,   
+        -2,  
+        2,   
         ]  # plotting limits x low, x high, yl, yh, zl, zh
 
         AX.set(xlim3d=(SIZE[0], SIZE[1]), xlabel="X")
@@ -64,46 +63,31 @@ class Animator:
         steps = len(self.data[0].index)
         AX.legend()
         #        AX.legend(["ABal", "ABar", "ABpr", "ABpl"])
-
-        custom_legend = [
-            Line2D(
+        
+        custom_legend = []
+        for i in range(len(cell_names[0:5])):
+           custom_legend.append(
+                Line2D(
                 [0],
                 [0],
                 marker="o",
                 color="w",
-                markerfacecolor=colors[2],
+                markerfacecolor=colors[i],
                 markersize=8,
-                label="ABpr",
-            ),
-            Line2D(
+                label=cell_names[i],
+            ))
+        
+        custom_legend.append(
+                Line2D(
                 [0],
                 [0],
                 marker="o",
                 color="w",
-                markerfacecolor=colors[3],
+                markerfacecolor=colors[-1],
                 markersize=8,
-                label="ABpl",
-            ),
-            Line2D(
-                [0],
-                [0],
-                marker="o",
-                color="w",
-                markerfacecolor=colors[1],
-                markersize=8,
-                label="ABar",
-            ),
-            Line2D(
-                [0],
-                [0],
-                marker="o",
-                color="w",
-                markerfacecolor=colors[0],
-                markersize=8,
-                label="ABal",
-            ),
-        ]
-
+                label="ems",
+            ))
+        
         AX.legend(handles=custom_legend)
 
         # initialize axes of rotation
@@ -151,7 +135,7 @@ class Animator:
             FIG,
             self.update_replace,
             steps,
-            fargs=(self.data, SIZE, positions_vectors, rotation_axes, wall_vectors, AX),
+            fargs=(self.data, self.radii, SIZE, positions_vectors, rotation_axes, wall_vectors, AX),
             interval=1,
             repeat=True,
         )
@@ -215,7 +199,7 @@ class Animator:
         )
 
     def update_replace(
-        self, frame, data, SIZE, positions, rotation_axes, wall_vectors, ax
+        self, frame, data, radii, SIZE, positions, rotation_axes, wall_vectors, ax
     ):
         """
         Update function for animation.
@@ -229,16 +213,11 @@ class Animator:
             x = data[curve_index]["x"][frame]
             y = data[curve_index]["y"][frame]
             z = data[curve_index]["z"][frame]
-            sphere = self.plot_sphere(ax, (x, y, z), 0.5, color=colors[curve_index])
+            if curve_index <= 4:
+                sphere = self.plot_sphere(ax, (x, y, z), radii.loc[frame, cell_names[curve_index]], color=colors[curve_index])
+            else:
+                sphere = self.plot_sphere(ax, (x, y, z), radii.iloc[frame, -1], color=colors[curve_index])
             self.spheres.append(sphere)
-
-        sphere = self.plot_sphere(ax, P2, 0.5, color="gray")
-        self.spheres.append(sphere)
-
-        ellipsoid = self.plot_ellipsoid(
-            ax, (0, 0, 0), (E0, E1, E1), color="gray", alpha=0.1
-        )
-        self.spheres.append(ellipsoid)
 
         # update wall cell axis
         wall_vectors[0].set_data(

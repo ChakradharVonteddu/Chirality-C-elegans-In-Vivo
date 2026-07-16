@@ -4,10 +4,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 
-from modelling.models.model_config import E0, E1, FINAL_SPRING_LENGTH, LAM
+from modelling.models.model_config import T_FINAL_C, ASPECT_RATIO, T_FINAL, R0_ALT
 
 
-def plot_fit(data, angles):
+def plot_fit(data, angles, E1):
     """
     Plot model fit against raw data.
     """
@@ -19,10 +19,10 @@ def plot_fit(data, angles):
     ap_average = data["ABp_ant_avg"].to_numpy()
 
     # get standard error of the mean
-    da_std = data["ABa_dorsal_stdeofmean"].to_numpy()
-    dp_std = data["ABp_dorsal_stdeofmean"].to_numpy()
-    aa_std = data["ABa_ant_stdeofmean"].to_numpy()
-    ap_std = data["ABp_ant_stdeofmean"].to_numpy()
+    da_CIhalfwidth = data["ABa_dorsal_CIhalfwidth"].to_numpy()
+    dp_CIhalfwidth = data["ABp_dorsal_CIhalfwidth"].to_numpy()
+    aa_CIhalfwidth = data["ABa_ant_CIhalfwidth"].to_numpy()
+    ap_CIhalfwidth = data["ABp_ant_CIhalfwidth"].to_numpy()
 
     # load data
     computed_ABa_dorsal = angles["ABa_dorsal"].to_numpy()
@@ -154,16 +154,16 @@ def plot_fit(data, angles):
 
     # plot confidence bands
     axD.fill_between(
-        t, da_average - da_std, da_average + da_std, alpha=0.2, color="blue"
+        t, da_average - da_CIhalfwidth, da_average + da_CIhalfwidth, alpha=0.2, color="blue"
     )
     axD.fill_between(
-        t, dp_average - dp_std, dp_average + dp_std, alpha=0.2, color="red"
+        t, dp_average - dp_CIhalfwidth, dp_average + dp_CIhalfwidth, alpha=0.2, color="red"
     )
     axA.fill_between(
-        t, aa_average - aa_std, aa_average + aa_std, alpha=0.2, color="blue"
+        t, aa_average - aa_CIhalfwidth, aa_average + aa_CIhalfwidth, alpha=0.2, color="blue"
     )
     axA.fill_between(
-        t, ap_average - ap_std, ap_average + ap_std, alpha=0.2, color="red"
+        t, ap_average - ap_CIhalfwidth, ap_average + ap_CIhalfwidth, alpha=0.2, color="red"
     )
 
     # plot legend
@@ -172,9 +172,22 @@ def plot_fit(data, angles):
 
     # save figure
     #    filename = f"./output/fit_E0_{E0:.2f}_E1_{E1:.2f}_FSL_{FINAL_SPRING_LENGTH:.2f}_LAM_{LAM:.3f}.png"
-    filename = f"./output/fit_E0_{E0:.2f}_E1_{E1:.2f}_FSL_{FINAL_SPRING_LENGTH:.2f}_LAM_{LAM:.3f}.pdf"
+    filename = f"./output/fit_E0_{ASPECT_RATIO*E1:.2f}_E1_{E1:.2f}.pdf"
     plt.savefig(filename)
 
+def plot_cort_fit(cort_data, lam, alpha):
+    time = np.linspace(0, T_FINAL_C, int(T_FINAL_C/5 + 1))
+    cort_vel_pred = alpha * lam * time * np.exp(-lam*time)
+    cort_vel = T_FINAL/R0_ALT * cort_data['cort_avg'].to_numpy()
+    
+    fig, ax = plt.subplots()
+    ax.plot(time, cort_vel_pred, label = "model")
+    ax.plot(time, cort_vel, label = "data")
+
+    ax.set_title(f"Cortical Velocity Fit (alpha={alpha}, lambda={lam:.4f})")
+    ax.legend()
+
+    plt.savefig(f"./output/cort_fit_alpha_{alpha}_lam_{lam:.4f}.pdf")
 
 def t_test(sample1: np.ndarray, sample2: np.ndarray):
     """

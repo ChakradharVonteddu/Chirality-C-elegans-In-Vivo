@@ -3,6 +3,8 @@ import time
 import numpy as np
 import pandas as pd
 from scipy.integrate import solve_ivp
+from itertools import combinations
+from modelling.models.model_config import cell_names
 
 
 class Simulator:
@@ -22,28 +24,35 @@ class Simulator:
         https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.solve_ivp.html#scipy.integrate.solve_ivp
         """
         start = time.time()
+
+        def timed_run(t, y):
+            if time.time() - start > 60.0:
+                raise TimeoutError("Simulation timed out (60s limit)")
+            return self.fun(t,y)
+
         solver = solve_ivp(
-            self.fun,
+            timed_run,
             [self.TAU_INITIAL, self.TAU_FINAL],
             self.y0,
             #    method='RK23',
             method="RK45",
             t_eval=np.linspace(self.TAU_INITIAL, self.TAU_FINAL, 40),
+            max_step = 0.007,
         )
 
         if solver.status != 0:
-            raise (Exception("Solver Failed"))
+            raise Exception("Solver Failed")
 
         # solver.t to get the timestamps
         format_y = np.transpose(np.array(solver.y))
-        self.df = pd.DataFrame(format_y, columns=[str(index) for index in range(12)])
+        self.df = pd.DataFrame(format_y, columns=[str(index) for index in range(len(self.y0))])
         self.compute_distance()
         self.compute_angles()
 
         if save:
-            self.df.to_excel("output/output.xlsx", index=False)
-            self.distance.to_excel("output/distances.xlsx", index=False)
-            self.angle.to_excel("output/angles.xlsx", index=False)
+            self.df.to_csv("output/output.csv", index=False)
+            self.distance.to_csv("output/distances.csv", index=False)
+            self.angle.to_csv("output/angles.csv", index=False)
 
         print("Total(s):", time.time() - start, solver.nfev, solver.njev, solver.nlu)
 
@@ -51,37 +60,15 @@ class Simulator:
         """ """
         if self.df.empty:
             raise (Exception("DataFrame not Found."))
-
-        self.distance["12"] = np.sqrt(
-            (self.df["0"] - self.df["3"]) ** 2
-            + (self.df["1"] - self.df["4"]) ** 2
-            + (self.df["2"] - self.df["5"]) ** 2
-        )
-        self.distance["13"] = np.sqrt(
-            (self.df["0"] - self.df["6"]) ** 2
-            + (self.df["1"] - self.df["7"]) ** 2
-            + (self.df["2"] - self.df["8"]) ** 2
-        )
-        self.distance["14"] = np.sqrt(
-            (self.df["0"] - self.df["9"]) ** 2
-            + (self.df["1"] - self.df["10"]) ** 2
-            + (self.df["2"] - self.df["11"]) ** 2
-        )
-        self.distance["23"] = np.sqrt(
-            (self.df["3"] - self.df["6"]) ** 2
-            + (self.df["4"] - self.df["7"]) ** 2
-            + (self.df["5"] - self.df["8"]) ** 2
-        )
-        self.distance["24"] = np.sqrt(
-            (self.df["3"] - self.df["9"]) ** 2
-            + (self.df["4"] - self.df["10"]) ** 2
-            + (self.df["5"] - self.df["11"]) ** 2
-        )
-        self.distance["34"] = np.sqrt(
-            (self.df["6"] - self.df["9"]) ** 2
-            + (self.df["7"] - self.df["10"]) ** 2
-            + (self.df["8"] - self.df["11"]) ** 2
-        )
+        
+        #assigns indices to all cells based on their position in cell_names
+        cell_indices = range(len(cell_names))
+        
+        #calculates distances between all possible combinations of two cells
+        for c1,c2 in combinations(cell_indices, 2):
+            cell1_coords = self.df.iloc[:,3*c1:3*(c1+1)].to_numpy()
+            cell2_coords = self.df.iloc[:,3*c2:3*(c2+1)].to_numpy()
+            self.distance[f"{c1+1}{c2+1}"] = np.linalg.norm(cell1_coords - cell2_coords, axis = 1)
 
     def compute_angles(self):
         """
