@@ -44,8 +44,14 @@ cell_names = ["ABal","ABar","ABpr","ABpl","p2","ems_a","ems_b","ems_c","ems_d"]
 ##LAM = 0.002  # Marcus' fit value
 #LAM = 0.0107  # Marcus' fit value
 
-modifiers = {
+modifiers_w_es = {
 "include_shell" : True,
+"include_p2" : True,
+"include_shell_friction" : False,
+"include_ems" : True}
+
+modifiers_wo_es = {
+"include_shell" : False,
 "include_p2" : True,
 "include_shell_friction" : False,
 "include_ems" : True}

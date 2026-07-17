@@ -1,10 +1,10 @@
 import numpy as np
-from .model_config import T_FINAL, modifiers, cell_names, burn_in, NUM_EMS, R0
+from .model_config import T_FINAL, cell_names, burn_in, NUM_EMS, R0
 from .All_Modifiers import modifier_map, calculate_d_cell_radius, _cell_wall_step, min_vect
 import pandas as pd
 from .Force_Calculator import ForceCalculator
 
-def get_velocity(params, return_data = False):
+def get_velocity(params, modifiers, return_data = False):
     
     def func(t, y):
         """
@@ -130,8 +130,14 @@ def get_velocity(params, return_data = False):
        
         d_cells_dict = {"ABal": ["ABpr","ABpl"], "ABar": ["ABpr","ABpl"], "ABpr": ["ABal","ABar"], "ABpl": ["ABal","ABar"]}
         
+        if modifiers["include_shell"]:
+            spring_force_shell = T_FINAL * params[0] * _cell_wall_step(*min_vect(cell_pos[cell_idx["ABal"]],params[3]),r_ABa)
+        else:
+            spring_force_shell = np.zeros(3)
+            
         force_data = {"Time" : t, 
-                   "Spring_force_dividing": fc.get_spring_force("ABal",["ABar","ABpr", "ABpl"],[params[4] + t*(params[5] - params[4]) ,r_ABp+r_ABa,r_ABp+r_ABa]),
+                    "Spring_force_dividing": fc.get_spring_force("ABal",["ABar","ABpr", "ABpl"],[params[4] + t*(params[5] - params[4]) ,r_ABp+r_ABa,r_ABp+r_ABa]),
+                    "Spring_force_shell" : spring_force_shell,
                     "Rotational_frictional_force_dividing" : fc.get_frictional_force("ABal",["ABpr","ABpl"],[r_ABp+r_ABa,r_ABp+r_ABa],cortical_flow_l),
                     "Spring_force_EMS" : fc.get_spring_force("ABal",EMS_cells, np.repeat(r_EMS + r_ABa, len(EMS_cells))),
                     "Frictional_force_EMSa" : fc.params[1]*(fc.get_frictional_force("ABal",["ems_a"],[r_EMS + r_ABa],cortical_flow_l)/fc.params[1] + np.heaviside(r_ABa + r_EMS - distances[cell_idx["ABal"],cell_idx["ems_a"]],0) * np.matmul(np.identity(3) - np.outer(uvec_array[cell_idx["ems_a"],cell_idx["ABal"]],uvec_array[cell_idx["ems_a"],cell_idx["ABal"]]),v_tuple_mod[cell_idx["ems_a"]] - v_tuple_mod[cell_idx["ABal"]])),

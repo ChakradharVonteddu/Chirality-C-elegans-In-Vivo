@@ -52,7 +52,7 @@ def get_init_noise(r0, d1, n, eta=0.0):
             ABar_x, ABar_y, ABar_z,          
             ABpr_x, ABpr_y, ABpr_z,          
             ABpl_x, ABpl_y, ABpl_z,          
-            -2.25*r0, 0, 0,                     
+            -2.4*r0, 0, 0,                     
             center_x + offset, center_y, ems_z,  
             center_x, center_y + offset, ems_z,  
             center_x - offset, center_y, ems_z,  
@@ -67,7 +67,7 @@ def get_init_noise(r0, d1, n, eta=0.0):
             ABar_x, ABar_y, ABar_z,          
             ABpr_x, ABpr_y, ABpr_z,          
             ABpl_x, ABpl_y, ABpl_z,          
-            -2.25*r0, 0, 0,                     
+            -2.4*r0, 0, 0,                     
             center_x, center_y, ems_z      
         )
     else:

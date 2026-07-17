@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 
-from modelling.models.model_config import NUM_EMS, R0, ETA
+from modelling.models.model_config import NUM_EMS, R0, ETA, modifiers_w_es, modifiers_wo_es
 from modelling.Fit.fit_config import GET_VELOCITY, get_init_noise
 from modelling.Fit.FitCoritcalFlow import fit_cortical
 from modelling.Fit.FitCurveFit import fit_model_whole
@@ -33,12 +33,12 @@ def fit():
     return model_fit
 
 
-def run(params):
+def run(params, modifiers, save_folder):
     "RUN, SAVE, AND ANIMATE"
-    sim = Simulator(GET_VELOCITY(params), get_init_noise(R0, params[4], NUM_EMS, ETA))
-    sim.run(True)
+    sim = Simulator(GET_VELOCITY(params, modifiers), get_init_noise(R0, params[4], NUM_EMS, ETA))
+    sim.run(True, save_folder)
 
-    evaluator = GET_VELOCITY(params, return_data=True)
+    evaluator = GET_VELOCITY(params, modifiers, return_data=True)
     radii_data = []
     force_data = []
     
@@ -54,12 +54,12 @@ def run(params):
     radii_df = pd.DataFrame(radii_data)
     force_df = pd.DataFrame(force_data)
         
-    save_path = "/Users/chakradhar/Desktop/Cellular Chirality model/chirality_C_elegans_In_Vivo/force_data.xlsx"
+    save_path = "/Users/chakradhar/Desktop/Cellular Chirality model/chirality_C_elegans_In_Vivo/output/" + save_folder + "/force_data.xlsx"
     force_df.to_excel(save_path, index=False)
     print(f"Force data saved successfully to {save_path}")
 
     animator = Animator(sim.df, radii_df)
-    animator.animate()
+    animator.animate(save_folder)
 
 
 def plot_data(params):
@@ -103,10 +103,10 @@ def fit_cortical_flow():
 
 if __name__ == "__main__":
     opt_params = fit()[0]
-    #[0.51045968, 7.01685261, 0.01557271, 2.05285592, 0.43039679, 1.56803805, 0.52192313]
     print("The optimal parameters are: ", opt_params)
-    run(opt_params)
-    plot_data(opt_params)
+    run(opt_params , modifiers_w_es, "es")
+    run(opt_params, modifiers_wo_es, "without_es")
+    plot_data(opt_params) #plots for eggshell model only (for now)
     
     #[9.83505885e-02, 7.05053333e+01, 1.07613064e-02, 2.4, 1.62967004e+00, 1.66688578e+00] - solution 1, no relative velocity based friction
     #[3.32324622e+00 9.90929901e+01 1.07573262e-02 2.18514148e+00 1.87793458e+00 1.99636674e+00 4.40406747e-01] - incomplete run, solution 2, relative velocity friction parameter

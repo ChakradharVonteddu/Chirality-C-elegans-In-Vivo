@@ -17,7 +17,7 @@ class Simulator:
         self.distance = pd.DataFrame([])
         self.angle = pd.DataFrame([])
 
-    def run(self, save: bool) -> None:
+    def run(self, save: bool, save_folder = "") -> None:
         """
         Uses RK45
 
@@ -50,9 +50,9 @@ class Simulator:
         self.compute_angles()
 
         if save:
-            self.df.to_csv("output/output.csv", index=False)
-            self.distance.to_csv("output/distances.csv", index=False)
-            self.angle.to_csv("output/angles.csv", index=False)
+            self.df.to_csv("output/" + save_folder + "/output.csv", index=False)
+            self.distance.to_csv("output/" + save_folder + "/distances.csv", index=False)
+            self.angle.to_csv("output/" + save_folder + "/angles.csv", index=False)
 
         print("Total(s):", time.time() - start, solver.nfev, solver.njev, solver.nlu)
 

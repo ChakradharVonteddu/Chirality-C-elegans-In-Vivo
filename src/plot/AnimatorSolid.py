@@ -16,7 +16,7 @@ class Animator:
         self.radii = radii_data
         self.spheres = []  # Store previous sphere objects
 
-    def animate(self):
+    def animate(self, save_folder):
         """
         Takes a euler df and animates it in matplotlib, assumes 6 components
         """
@@ -143,16 +143,16 @@ class Animator:
         # save animation from different angles
         AX.view_init(30, 60, 0)
         #        anim.save('output/XYZ.png')
-        anim.save("output/XYZ.gif", writer="pillow")
+        anim.save("output/" + save_folder +  "/XYZ.gif", writer="pillow")
         AX.view_init(90, 90, 0)
         #        anim.save('output/XY.png')
-        anim.save("output/XY.gif", writer="pillow")
+        anim.save("output/" + save_folder + "/XY.gif", writer="pillow")
         AX.view_init(0, -90, 0)
         #        anim.save('output/XZ.png')
-        anim.save("output/XZ.gif", writer="pillow")
+        anim.save("output/" + save_folder + "/XZ.gif", writer="pillow")
         AX.view_init(0, 0, 0)
         #        anim.save('output/YZ.png')
-        anim.save("output/YZ.gif", writer="pillow")
+        anim.save("output/" + save_folder + "/YZ.gif", writer="pillow")
 
     @staticmethod
     def plot_ellipsoid(ax, center, radii, color="gray", alpha=1.0):
