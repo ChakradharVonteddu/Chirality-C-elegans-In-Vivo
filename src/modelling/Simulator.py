@@ -4,30 +4,37 @@ import numpy as np
 import pandas as pd
 from scipy.integrate import solve_ivp
 from itertools import combinations
-from modelling.models.model_config import cell_names
+from modelling.models.model_config import cell_names, T_FINAL_ES, T_FINAL_NO_ES
 
 
 class Simulator:
-    def __init__(self, model_func, y0) -> None:
+    def __init__(self, model_func, y0, t_eval) -> None:
         self.y0 = y0
         self.TAU_INITIAL = 0
-        self.TAU_FINAL = 1  # non-dimensionalized
+        self.TAU_FINAL = None
+        self.t_eval = t_eval
         self.fun = model_func
         self.df = pd.DataFrame([])
         self.distance = pd.DataFrame([])
         self.angle = pd.DataFrame([])
 
-    def run(self, save: bool, save_folder = "") -> None:
+    def run(self, type, save: bool, save_folder = "") -> None:
         """
         Uses RK45
 
         https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.solve_ivp.html#scipy.integrate.solve_ivp
         """
+
+        if type == "ES":
+            self.TAU_FINAL = 1
+        else:
+            self.TAU_FINAL = T_FINAL_NO_ES/T_FINAL_ES
+            
         start = time.time()
 
         def timed_run(t, y):
-            if time.time() - start > 60.0:
-                raise TimeoutError("Simulation timed out (60s limit)")
+            if time.time() - start > 80:
+                raise TimeoutError("Simulation timed out (80s limit)")
             return self.fun(t,y)
 
         solver = solve_ivp(
@@ -36,7 +43,7 @@ class Simulator:
             self.y0,
             #    method='RK23',
             method="RK45",
-            t_eval=np.linspace(self.TAU_INITIAL, self.TAU_FINAL, 40),
+            t_eval = self.t_eval,
             max_step = 0.007,
         )
 

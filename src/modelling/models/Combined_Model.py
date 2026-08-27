@@ -1,5 +1,5 @@
 import numpy as np
-from .model_config import T_FINAL, cell_names, burn_in, NUM_EMS, R0
+from .model_config import T_FINAL_ES, T_FINAL_NO_ES, cell_names, NUM_EMS, R0, param_loc, LAM, ALPHA
 from .All_Modifiers import modifier_map, calculate_d_cell_radius, _cell_wall_step, min_vect
 import pandas as pd
 from .Force_Calculator import ForceCalculator
@@ -12,7 +12,7 @@ def get_velocity(params, modifiers, return_data = False):
 
         ABal = 1, ABar = 2, ABpr = 3, ABpl = 4
         """
-        #params[0] - spring constant/gamma, params[1] - frictional constant/gamma, params[2] - lambda (1/s), params[3] - E1 (in R0), params[4] - d1 (in R0), params[5] - d2 (in R0), params[6] - alpha (in R0/195s)
+        #params[0] - spring constant/gamma (1/s), params[1] - frictional constant/gamma (unitless), params[2] - E1 (in R0), params[3] - d1 (in R0), params[4] - d2_es (in R0), params[5] - adhesion constant (unitless), params[6] - d2_no_es (in R0), params[7] - t0 (in units of 195s) 
 
         cell_pos = np.array([y[3*k:3*(k+1)] for k in range(len(cell_names))])
         d_cells = cell_names[0:4] #dividing cells
@@ -33,7 +33,7 @@ def get_velocity(params, modifiers, return_data = False):
 
         sol_list = []
 
-        v0 =  8/3*np.pi*R0**3 - np.pi/12*(4*R0 + params[4])*(2*R0 - params[4])**2 #Initial volume of ABa cell
+        v0 =  8/3*np.pi*R0**3 - np.pi/12*(4*R0 + params[param_loc["d1"]])*(2*R0 - params[param_loc["d1"]])**2 #Initial volume of ABa cell
         #Calculation of EMS radius - Volume of 4 EMS spheres(accounting for 2-sphere overlaps) is given as 4*pi*d*r^2 - pi*d^3/3, where d is the initial distance between centers of EMS spheres. 
         #We set this equal to 36/47*initial volume of ABa and solve for r_EMS
         if NUM_EMS == 4:
@@ -45,19 +45,28 @@ def get_velocity(params, modifiers, return_data = False):
             print("The number of EMS spheres should either be 1 or 4")
        
         for d in d_list:
-            r = calculate_d_cell_radius(params[4],d)
+            r = calculate_d_cell_radius(params[param_loc["d1"]],d)
             sol_list.append(r)
         
         r_ABa = sol_list[0]
         r_ABp = sol_list[1]
             
-        if burn_in:
-            cortical_flow_l = 0
-            cortical_flow_r = 0
-        else:
-            cortical_flow_r = params[2]*params[6]*t*T_FINAL*np.e**(-params[2]*t*T_FINAL)
+        if modifiers["include_shell"]:
+            cortical_flow_r = T_FINAL_ES*LAM*ALPHA*t*T_FINAL_ES*np.e**(-LAM*(t*T_FINAL_ES))
             cortical_flow_l = cortical_flow_r
-
+            spindle_length = params[param_loc["d1"]] + t*(params[param_loc["d2_es"]] - params[param_loc["d1"]])
+        elif not modifiers["include_shell"] and t < params[param_loc["t0"]]:
+            cortical_flow_r = 0
+            cortical_flow_l = 0
+            spindle_length = params[param_loc["d1"]]
+        else:
+            cortical_flow_r = T_FINAL_ES*LAM*ALPHA*(t - params[param_loc["t0"]])*T_FINAL_ES*np.e**(-LAM*(t - params[param_loc["t0"]])*T_FINAL_ES)
+            cortical_flow_l = cortical_flow_r
+            spindle_length = params[param_loc["d1"]] + (t - params[param_loc["t0"]])/(T_FINAL_NO_ES/T_FINAL_ES - params[param_loc["t0"]])*(params[param_loc["d2_no_es"]] - params[param_loc["d1"]]) 
+            #cortical_flow_r = T_FINAL_ES*LAM*ALPHA*t*T_FINAL_ES*np.e**(-LAM*(t*T_FINAL_ES))
+            #cortical_flow_l = cortical_flow_r
+            #spindle_length = params[param_loc["d1"]] + t/(T_FINAL_NO_ES/T_FINAL_ES)*(params[param_loc["d2_no_es"]] - params[param_loc["d1"]])
+        
         #Rotational axis of non-rotating cells is set to the zero vector for convenience when calculating frictional force
         rotation_axes = {
             "ABal" : uvec_array[cell_idx["ABar"], cell_idx["ABal"]], 
@@ -69,15 +78,15 @@ def get_velocity(params, modifiers, return_data = False):
         fc = ForceCalculator(params, distances, uvec_array, rotation_axes, cell_idx)
         
         #Rest_length at time t is set equal to d1 + t*(d2 - d1) between ABa/ABp spheres, which allows for d(t) to be linear in t. t here is normalized to be between 0 and 1.
-        ABal_prime = fc.get_spring_force("ABal",["ABar","ABpr", "ABpl"],[params[4] + t*(params[5] - params[4]) ,r_ABp+r_ABa,r_ABp+r_ABa]) + fc.get_frictional_force("ABal",["ABpr","ABpl"],[r_ABp+r_ABa,r_ABp+r_ABa],cortical_flow_l)
+        ABal_prime = fc.get_spring_force("ABal",r_ABa,["ABar","ABpr", "ABpl"],[r_ABa,r_ABp,r_ABp],[spindle_length,r_ABp+r_ABa,r_ABp+r_ABa]) + fc.get_frictional_force("ABal",["ABpr","ABpl"],[r_ABp+r_ABa,r_ABp+r_ABa],cortical_flow_l)
         
-        ABar_prime = fc.get_spring_force("ABar",["ABal", "ABpr", "ABpl"],[params[4] + t*(params[5] - params[4]),r_ABp+r_ABa,r_ABp+r_ABa]) + fc.get_frictional_force("ABar",["ABpr","ABpl"],[r_ABp+r_ABa,r_ABp+r_ABa],cortical_flow_r)
+        ABar_prime = fc.get_spring_force("ABar",r_ABa,["ABal", "ABpr", "ABpl"],[r_ABa,r_ABp,r_ABp],[spindle_length,r_ABp+r_ABa,r_ABp+r_ABa]) + fc.get_frictional_force("ABar",["ABpr","ABpl"],[r_ABp+r_ABa,r_ABp+r_ABa],cortical_flow_r)
         
-        ABpr_prime = fc.get_spring_force("ABpr",["ABal","ABar","ABpl"],[r_ABp+r_ABa,r_ABp+r_ABa,params[4] + t*(params[5] - params[4])]) + fc.get_frictional_force("ABpr",["ABal","ABar"],[r_ABp+r_ABa,r_ABp+r_ABa],cortical_flow_r)
+        ABpr_prime = fc.get_spring_force("ABpr",r_ABp,["ABal","ABar","ABpl"],[r_ABa,r_ABa,r_ABp],[r_ABp+r_ABa,r_ABp+r_ABa,spindle_length]) + fc.get_frictional_force("ABpr",["ABal","ABar"],[r_ABp+r_ABa,r_ABp+r_ABa],cortical_flow_r)
         
-        ABpl_prime = fc.get_spring_force("ABpl",["ABal","ABar","ABpr"],[r_ABp+r_ABa,r_ABp+r_ABa,params[4] + t*(params[5] - params[4])]) + fc.get_frictional_force("ABpl",["ABar","ABal"],[r_ABp+r_ABa,r_ABp+r_ABa],cortical_flow_l)
+        ABpl_prime = fc.get_spring_force("ABpl",r_ABp,["ABal","ABar","ABpr"],[r_ABa,r_ABa,r_ABp],[r_ABp+r_ABa,r_ABp+r_ABa,spindle_length]) + fc.get_frictional_force("ABpl",["ABar","ABal"],[r_ABp+r_ABa,r_ABp+r_ABa],cortical_flow_l)
 
-        P2_prime = (fc.get_spring_force("p2",d_cells,[R0 + r_ABa,R0+ r_ABa, R0 + r_ABp, R0 + r_ABp]) - 
+        P2_prime = (fc.get_spring_force("p2",R0,d_cells,[r_ABa,r_ABa,r_ABp,r_ABp],[R0 + r_ABa,R0+ r_ABa, R0 + r_ABp, R0 + r_ABp]) - 
                     fc.get_frictional_force("ABal",["p2"],[R0 + r_ABa],cortical_flow_l) -
                     fc.get_frictional_force("ABar",["p2"],[R0 + r_ABa],cortical_flow_r) -
                     fc.get_frictional_force("ABpr",["p2"],[R0 + r_ABp],cortical_flow_r) -
@@ -85,7 +94,7 @@ def get_velocity(params, modifiers, return_data = False):
 
         EMS_primes = []
         for ems_cell in EMS_cells:
-            EMS_prime = (fc.get_spring_force(ems_cell, d_cells + [c for c in EMS_cells if c != ems_cell], np.concatenate([[r_EMS + r_ABa,r_EMS + r_ABa, r_EMS + r_ABp, r_EMS + r_ABp],np.repeat(EMS2EMS_REST_L,len(EMS_cells) - 1)])) -
+            EMS_prime = (fc.get_spring_force(ems_cell, r_EMS, d_cells + [c for c in EMS_cells if c != ems_cell], [r_ABa,r_ABa,r_ABp,r_ABp] + [r_EMS]*(len(EMS_cells)-1), np.concatenate([[r_EMS + r_ABa,r_EMS + r_ABa, r_EMS + r_ABp, r_EMS + r_ABp],np.repeat(EMS2EMS_REST_L,len(EMS_cells) - 1)])) -
                         fc.get_frictional_force("ABal",[ems_cell],[r_EMS + r_ABa],cortical_flow_l) -
                         fc.get_frictional_force("ABar",[ems_cell],[r_EMS + r_ABa],cortical_flow_r) -
                         fc.get_frictional_force("ABpr",[ems_cell],[r_EMS + r_ABp],cortical_flow_r) -
@@ -102,7 +111,7 @@ def get_velocity(params, modifiers, return_data = False):
             "r_ABp" : r_ABp,
             "r_EMS" : r_EMS,
             "r_P2" : R0,
-            "E1" : params[3],
+            "E1" : params[param_loc["E1"]],
             "EMS_positions" : cell_pos[cell_names.index("ems_a"):],
             "EMS_cells" : EMS_cells,
             "d_cells" : d_cells,
@@ -128,21 +137,21 @@ def get_velocity(params, modifiers, return_data = False):
         if not return_data:
             return np.concatenate(v_tuple_mod)
        
-        d_cells_dict = {"ABal": ["ABpr","ABpl"], "ABar": ["ABpr","ABpl"], "ABpr": ["ABal","ABar"], "ABpl": ["ABal","ABar"]}
+        #d_cells_dict = {"ABal": ["ABpr","ABpl"], "ABar": ["ABpr","ABpl"], "ABpr": ["ABal","ABar"], "ABpl": ["ABal","ABar"]}
         
         if modifiers["include_shell"]:
-            spring_force_shell = T_FINAL * params[0] * _cell_wall_step(*min_vect(cell_pos[cell_idx["ABal"]],params[3]),r_ABa)
+            spring_force_shell = T_FINAL_ES * params[param_loc["spring_constant"]] * _cell_wall_step(*min_vect(cell_pos[cell_idx["ABal"]],params[param_loc["E1"]]),r_ABa)
         else:
             spring_force_shell = np.zeros(3)
             
         force_data = {"Time" : t, 
-                    "Spring_force_dividing": fc.get_spring_force("ABal",["ABar","ABpr", "ABpl"],[params[4] + t*(params[5] - params[4]) ,r_ABp+r_ABa,r_ABp+r_ABa]),
+                    "Spring_force_dividing": fc.get_spring_force("ABal",r_ABa,["ABar","ABpr", "ABpl"],[r_ABa,r_ABp,r_ABp],[spindle_length ,r_ABp+r_ABa,r_ABp+r_ABa]),
                     "Spring_force_shell" : spring_force_shell,
                     "Rotational_frictional_force_dividing" : fc.get_frictional_force("ABal",["ABpr","ABpl"],[r_ABp+r_ABa,r_ABp+r_ABa],cortical_flow_l),
-                    "Spring_force_EMS" : fc.get_spring_force("ABal",EMS_cells, np.repeat(r_EMS + r_ABa, len(EMS_cells))),
-                    "Frictional_force_EMSa" : fc.params[1]*(fc.get_frictional_force("ABal",["ems_a"],[r_EMS + r_ABa],cortical_flow_l)/fc.params[1] + np.heaviside(r_ABa + r_EMS - distances[cell_idx["ABal"],cell_idx["ems_a"]],0) * np.matmul(np.identity(3) - np.outer(uvec_array[cell_idx["ems_a"],cell_idx["ABal"]],uvec_array[cell_idx["ems_a"],cell_idx["ABal"]]),v_tuple_mod[cell_idx["ems_a"]] - v_tuple_mod[cell_idx["ABal"]])),
-                    "Frictional_force_EMSb" : fc.params[1]*(fc.get_frictional_force("ABal",["ems_b"],[r_EMS + r_ABa],cortical_flow_l)/fc.params[1] + np.heaviside(r_ABa + r_EMS - distances[cell_idx["ABal"],cell_idx["ems_b"]],0) * np.matmul(np.identity(3) - np.outer(uvec_array[cell_idx["ems_b"],cell_idx["ABal"]],uvec_array[cell_idx["ems_b"],cell_idx["ABal"]]),v_tuple_mod[cell_idx["ems_b"]] - v_tuple_mod[cell_idx["ABal"]])),
-                    "ABal_vel": np.linalg.norm(fc.get_frictional_force("ABal",["ems_a"],[r_EMS + r_ABa],cortical_flow_l)/fc.params[1] + v_tuple_mod[cell_idx["ABal"]]),
+                    "Spring_force_EMS" : fc.get_spring_force("ABal",r_ABa, EMS_cells, [r_EMS]*len(EMS_cells), np.repeat(r_EMS + r_ABa, len(EMS_cells))),
+                    "Frictional_force_EMSa" : fc.params[param_loc["frictional_constant"]]*(fc.get_frictional_force("ABal",["ems_a"],[r_EMS + r_ABa],cortical_flow_l)/fc.params[param_loc["frictional_constant"]] + np.heaviside(r_ABa + r_EMS - distances[cell_idx["ABal"],cell_idx["ems_a"]],0) * np.matmul(np.identity(3) - np.outer(uvec_array[cell_idx["ems_a"],cell_idx["ABal"]],uvec_array[cell_idx["ems_a"],cell_idx["ABal"]]),v_tuple_mod[cell_idx["ems_a"]] - v_tuple_mod[cell_idx["ABal"]])),
+                    "Frictional_force_EMSb" : fc.params[param_loc["frictional_constant"]]*(fc.get_frictional_force("ABal",["ems_b"],[r_EMS + r_ABa],cortical_flow_l)/fc.params[param_loc["frictional_constant"]] + np.heaviside(r_ABa + r_EMS - distances[cell_idx["ABal"],cell_idx["ems_b"]],0) * np.matmul(np.identity(3) - np.outer(uvec_array[cell_idx["ems_b"],cell_idx["ABal"]],uvec_array[cell_idx["ems_b"],cell_idx["ABal"]]),v_tuple_mod[cell_idx["ems_b"]] - v_tuple_mod[cell_idx["ABal"]])),
+                    "ABal_vel": np.linalg.norm(fc.get_frictional_force("ABal",["ems_a"],[r_EMS + r_ABa],cortical_flow_l)/fc.params[param_loc["frictional_constant"]] + v_tuple_mod[cell_idx["ABal"]]),
                     "EMSa_vel": np.linalg.norm(v_tuple_mod[cell_idx["ems_a"]])}
         
         #for c1, c2 in itertools.product(cell_names,cell_names):

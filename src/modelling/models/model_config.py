@@ -1,8 +1,12 @@
 import numpy as np
+import pandas as pd
 
-#T_FINAL = 4 - burn in same egg-shell
-#T_FINAL = 7 - burn in wider egg-shell
-T_FINAL = 195
+T_FINAL_ES = 195
+T_FINAL_NO_ES = 238
+
+#T_START_NO_ES = 0
+#T_END_NO_ES = 360
+
 burn_in = False
 # P2 = np.array([-1.1660254, 0, 0]) # 0 degrees
 #P2 = np.array([-1.05, 0, -0.433012702]) # 30 degrees
@@ -20,19 +24,23 @@ T_FINAL_C = 250
 R0 = 1 #The initial radius of an ABal/ABar/ABpr/ABpl cell is approx 8.95 micro meters.
 R0_ALT = 8.95 #R0 in micro meters
 
+ES_TIMES = pd.read_excel("./src/data/data_stat.xlsx", sheet_name = "ES")["t"].to_numpy()/T_FINAL_ES #non-dimensionalized eggshell times
+NO_ES_TIMES = pd.read_excel("./src/data/data_stat.xlsx", sheet_name = "NO_ES")["t"].to_numpy()/T_FINAL_ES #non-dimensionalized no eggshell times
 
 ASPECT_RATIO = 1.53
 #E0, E1 = (2.6, 1.7) #to be used during burn-in phase
 
 ETA = 0 #Initial tilt
 
-# The additional length of the mitotic axis at the end (t=195) (total final length is 1+ this)
-#FINAL_SPRING_LENGTH = 0.1*spindle_length
-#FINAL_SPRING_LENGTH = 0.2
+ALPHA = 0.003496
+LAM = 0.0152
 
-#v0 = 8/3*np.pi*0.5**3 - np.pi/12*(4*0.5 + spindle_length)*(2*0.5 - spindle_length)**2  #Initial volume
-
-#EMS2EMS_REST_L = 0.4 #to be used for calculation of spring forces between EMS cells only
+#params[0] - spring constant/gamma (1/s), params[1] - frictional constant/gamma (unitless), params[2] - E1 (in R0), params[3] - d1 (in R0), params[4] - d2_es (in R0), params[5] - adhesion constant (unitless), params[6] - d2_no_es (in R0), params[7] - t0 (in units of 195s) 
+param_loc = {"spring_constant" : 0, "frictional_constant" : 1, "E1" : 2, "d1" : 3, "d2_es" : 4, "adhesion_constant" : 5, "d2_no_es" : 6, "t0" : 7}
+              
+time_configs = [{"label": "7s","t_min": 0, "t_max": 238, "interval": 7}]
+        #{"label": "15s", "t_min" : 0, "t_max": 360, "interval": 15}
+ 
 NUM_EMS = 4
 
 cell_names = ["ABal","ABar","ABpr","ABpl","p2","ems_a","ems_b","ems_c","ems_d"]

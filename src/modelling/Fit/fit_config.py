@@ -1,7 +1,7 @@
 from ..models import Combined_Model
 import numpy as np
 
-def get_init_noise(r0, d1, n, eta=0.0):
+def get_init_noise(r0, d1, n, es, eta=0.0):
     ab_z = 0.25
     x_ant = r0
     x_post = -r0 
@@ -39,20 +39,29 @@ def get_init_noise(r0, d1, n, eta=0.0):
 
     center_x = 0
     center_y = 0 
-    
+
     v0 = 8/3*np.pi*r0**3 - np.pi/12*(4*r0 + d1)*(2*r0 - d1)**2 
 
     if n == 4:
         r_EMS = np.cbrt(1/np.pi * 3/11 * 36/47 * v0)
         offset = r_EMS * np.sqrt(2)/2
         ems_z = ab_z - np.sqrt(max(0, (r0+r_EMS)**2 - (r0 - offset)**2 - (d1/2)**2))
-    
+
+        if es:
+            p2_x = -2.4*r0
+            p2_y = 0
+            p2_z = 0            
+        else:
+            p2_x = center_x
+            p2_y = center_y + offset + r_EMS + r0
+            p2_z = ems_z - 0.15
+
         init = (
             ABal_x, ABal_y, ABal_z,          
             ABar_x, ABar_y, ABar_z,          
             ABpr_x, ABpr_y, ABpr_z,          
             ABpl_x, ABpl_y, ABpl_z,          
-            -2.4*r0, 0, 0,                     
+            p2_x, p2_y, p2_z,                     
             center_x + offset, center_y, ems_z,  
             center_x, center_y + offset, ems_z,  
             center_x - offset, center_y, ems_z,  
@@ -62,12 +71,21 @@ def get_init_noise(r0, d1, n, eta=0.0):
         r_EMS = np.cbrt(36/47*v0*3/(4*np.pi))
         ems_z = ab_z - np.sqrt(max(0, (r0+r_EMS)**2 - (r0)**2 - (d1/2)**2))
 
+        if es:
+            p2_x = -2.4*r0
+            p2_y = 0
+            p2_z = 0            
+        else:
+            p2_x = center_x
+            p2_y = center_y + r_EMS + r0
+            p2_z = ems_z - 0.15
+            
         init = (
             ABal_x, ABal_y, ABal_z,          
             ABar_x, ABar_y, ABar_z,          
             ABpr_x, ABpr_y, ABpr_z,          
             ABpl_x, ABpl_y, ABpl_z,          
-            -2.4*r0, 0, 0,                     
+            p2_x, p2_y, p2_z,                     
             center_x, center_y, ems_z      
         )
     else:
@@ -99,4 +117,5 @@ def get_init_noise(r0, d1, n, eta=0.0):
 #INIT = (0.65, 0.5, 0.25, 0.65, -0.5, 0.25, -0.35, -0.5, 0.25, -0.35, 0.5, 0.25, -0.9, 0, 0, 0.15, 0, -0.56)
 
 GET_VELOCITY = Combined_Model.get_velocity
+
 

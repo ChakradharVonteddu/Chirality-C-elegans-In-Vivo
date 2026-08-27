@@ -1,12 +1,12 @@
 import numpy as np
 from ..least_distance.ellipsoid import min_point_ellipsoid
-from .model_config import T_FINAL, ASPECT_RATIO, R0
+from .model_config import ASPECT_RATIO, R0, T_FINAL_ES, param_loc
 from numpy.polynomial import Polynomial
 
 #This function applies the spring force associated with the egg-shell
 def apply_shell(variables, ABal_prime, ABar_prime, ABpr_prime, ABpl_prime, P2_prime, EMS_primes):
     
-    spring_const = variables["calculator"].params[0]
+    spring_const = variables["calculator"].params[param_loc["spring_constant"]]
     ABal = variables["ABal_pos"]
     ABar = variables["ABar_pos"]
     ABpr = variables["ABpr_pos"]
@@ -19,14 +19,15 @@ def apply_shell(variables, ABal_prime, ABar_prime, ABpr_prime, ABpl_prime, P2_pr
     r_P2 = variables["r_P2"]
     e1 = variables["E1"]
 
+
     #cell wall forces
-    ABal_prime += T_FINAL * spring_const * _cell_wall_step(*min_vect(ABal,e1),r_ABa)
-    ABar_prime += T_FINAL * spring_const  * _cell_wall_step(*min_vect(ABar,e1),r_ABa)
-    ABpr_prime += T_FINAL * spring_const  * _cell_wall_step(*min_vect(ABpr,e1),r_ABp)
-    ABpl_prime += T_FINAL * spring_const  * _cell_wall_step(*min_vect(ABpl,e1),r_ABp)
-    P2_prime += T_FINAL * spring_const * _cell_wall_step(*min_vect(p2,e1),r_P2)
+    ABal_prime +=  T_FINAL_ES * spring_const * _cell_wall_step(*min_vect(ABal,e1),r_ABa)
+    ABar_prime += T_FINAL_ES * spring_const  * _cell_wall_step(*min_vect(ABar,e1),r_ABa)
+    ABpr_prime += T_FINAL_ES * spring_const  * _cell_wall_step(*min_vect(ABpr,e1),r_ABp)
+    ABpl_prime += T_FINAL_ES * spring_const  * _cell_wall_step(*min_vect(ABpl,e1),r_ABp)
+    P2_prime += T_FINAL_ES * spring_const * _cell_wall_step(*min_vect(p2,e1),r_P2)
     for i in range(len(EMS_primes)):
-        EMS_primes[i] += T_FINAL * spring_const * _cell_wall_step(*min_vect(EMS_pos[i],e1),r_EMS)
+        EMS_primes[i] += T_FINAL_ES * spring_const * _cell_wall_step(*min_vect(EMS_pos[i],e1),r_EMS)
 
     return ABal_prime, ABar_prime, ABpr_prime, ABpl_prime, P2_prime, EMS_primes
 
@@ -34,7 +35,7 @@ def apply_shell(variables, ABal_prime, ABar_prime, ABpr_prime, ABpl_prime, P2_pr
 def apply_shell_friction(variables, ABal_prime, ABar_prime, ABpr_prime, ABpl_prime, P2_prime, EMS_primes):
      
     calc = variables["calculator"]
-    fric_coef = calc.params[1]
+    fric_coef = calc.params[param_loc["frictional_constant"]]
     cort_flow_l = variables["cort_flow_l"]
     cort_flow_r = variables["cort_flow_r"]
     ABal = variables["ABal_pos"]
@@ -66,12 +67,12 @@ def apply_p2(variables, ABal_prime, ABar_prime, ABpr_prime, ABpl_prime, P2_prime
     r_EMS = variables["r_EMS"]
     r_P2 = variables["r_P2"]
 
-    ABal_prime += fc.get_spring_force("ABal",["p2"],[r_ABa + r_P2]) + fc.get_frictional_force("ABal",["p2"],[r_ABa + r_P2],cort_flow_l)
-    ABar_prime += fc.get_spring_force("ABar",["p2"],[r_ABa + r_P2]) + fc.get_frictional_force("ABar",["p2"],[r_ABa + r_P2],cort_flow_r)
-    ABpr_prime += fc.get_spring_force("ABpr",["p2"],[r_ABp + r_P2]) + fc.get_frictional_force("ABpr",["p2"],[r_ABp + r_P2],cort_flow_r)
-    ABpl_prime += fc.get_spring_force("ABpl",["p2"],[r_ABp + r_P2]) + fc.get_frictional_force("ABpl",["p2"],[r_ABp + r_P2],cort_flow_l)
+    ABal_prime += fc.get_spring_force("ABal",r_ABa,["p2"],[r_P2],[r_ABa + r_P2]) + fc.get_frictional_force("ABal",["p2"],[r_ABa + r_P2],cort_flow_l)
+    ABar_prime += fc.get_spring_force("ABar",r_ABa,["p2"],[r_P2],[r_ABa + r_P2]) + fc.get_frictional_force("ABar",["p2"],[r_ABa + r_P2],cort_flow_r)
+    ABpr_prime += fc.get_spring_force("ABpr",r_ABp,["p2"],[r_P2],[r_ABp + r_P2]) + fc.get_frictional_force("ABpr",["p2"],[r_ABp + r_P2],cort_flow_r)
+    ABpl_prime += fc.get_spring_force("ABpl",r_ABp,["p2"],[r_P2],[r_ABp + r_P2]) + fc.get_frictional_force("ABpl",["p2"],[r_ABp + r_P2],cort_flow_l)
     for i in range(len(EMS_primes)):
-        EMS_primes[i] += fc.get_spring_force(EMS_cells[i],["p2"],[r_EMS + r_P2])
+        EMS_primes[i] += fc.get_spring_force(EMS_cells[i],r_EMS,["p2"],[r_P2],[r_EMS + r_P2])
     
     return ABal_prime, ABar_prime, ABpr_prime, ABpl_prime, P2_prime, EMS_primes
 
@@ -87,11 +88,11 @@ def apply_ems(variables, ABal_prime, ABar_prime, ABpr_prime, ABpl_prime, P2_prim
     r_EMS = variables["r_EMS"]
     r_P2 = variables["r_P2"]
 
-    ABal_prime += fc.get_spring_force("ABal",EMS_cells, np.repeat(r_EMS + r_ABa, len(EMS_cells))) + fc.get_frictional_force("ABal",EMS_cells, np.repeat(r_EMS + r_ABa, len(EMS_cells)),cort_flow_l)
-    ABar_prime += fc.get_spring_force("ABar",EMS_cells, np.repeat(r_EMS + r_ABa, len(EMS_cells))) + fc.get_frictional_force("ABar",EMS_cells, np.repeat(r_EMS + r_ABa, len(EMS_cells)),cort_flow_r)
-    ABpr_prime += fc.get_spring_force("ABpr",EMS_cells, np.repeat(r_EMS + r_ABp, len(EMS_cells))) + fc.get_frictional_force("ABpr",EMS_cells, np.repeat(r_EMS + r_ABp, len(EMS_cells)),cort_flow_r)
-    ABpl_prime += fc.get_spring_force("ABpl",EMS_cells, np.repeat(r_EMS + r_ABp, len(EMS_cells))) + fc.get_frictional_force("ABpl",EMS_cells, np.repeat(r_EMS + r_ABp, len(EMS_cells)),cort_flow_l)
-    P2_prime += fc.get_spring_force("p2", EMS_cells, np.repeat(r_EMS + r_P2, len(EMS_cells)))
+    ABal_prime += fc.get_spring_force("ABal",r_ABa,EMS_cells,[r_EMS]*len(EMS_cells), np.repeat(r_EMS + r_ABa, len(EMS_cells))) + fc.get_frictional_force("ABal",EMS_cells, np.repeat(r_EMS + r_ABa, len(EMS_cells)),cort_flow_l)
+    ABar_prime += fc.get_spring_force("ABar",r_ABa,EMS_cells,[r_EMS]*len(EMS_cells), np.repeat(r_EMS + r_ABa, len(EMS_cells))) + fc.get_frictional_force("ABar",EMS_cells, np.repeat(r_EMS + r_ABa, len(EMS_cells)),cort_flow_r)
+    ABpr_prime += fc.get_spring_force("ABpr",r_ABp,EMS_cells,[r_EMS]*len(EMS_cells), np.repeat(r_EMS + r_ABp, len(EMS_cells))) + fc.get_frictional_force("ABpr",EMS_cells, np.repeat(r_EMS + r_ABp, len(EMS_cells)),cort_flow_r)
+    ABpl_prime += fc.get_spring_force("ABpl",r_ABp,EMS_cells,[r_EMS]*len(EMS_cells), np.repeat(r_EMS + r_ABp, len(EMS_cells))) + fc.get_frictional_force("ABpl",EMS_cells, np.repeat(r_EMS + r_ABp, len(EMS_cells)),cort_flow_l)
+    P2_prime += fc.get_spring_force("p2", r_P2, EMS_cells, [r_EMS]*len(EMS_cells), np.repeat(r_EMS + r_P2, len(EMS_cells)))
     
     return ABal_prime, ABar_prime, ABpr_prime, ABpl_prime, P2_prime, EMS_primes
 
